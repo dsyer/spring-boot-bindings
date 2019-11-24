@@ -51,13 +51,15 @@ func readProperties(base string, prefix string) string {
 	for _, file := range paths {
 		if !file.IsDir() {
 			key := file.Name()
-			value, err := ioutil.ReadFile(base + "/" + key)
+			bytes, err := ioutil.ReadFile(base + "/" + key)
 			if err == nil {
                 newline := "\\n"
                 if key == "tags" {
                     newline = ","
                 }
-				prop := prefix + "." + key + "=" + strings.ReplaceAll(string(value), "\n", newline) + "\n"
+                value := string(bytes)
+                value = strings.TrimSuffix(value, "\n")
+				prop := prefix + "." + key + "=" + strings.ReplaceAll(value, "\n", newline) + "\n"
 				result = result + prop
 			}
 		}
