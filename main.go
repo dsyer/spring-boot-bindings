@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"strings"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -44,7 +45,7 @@ func getProperties(path string) []byte {
 	return properties
 }
 
-func readProperties(base string, name string) string {
+func readProperties(base string, prefix string) string {
 	paths, _ := ioutil.ReadDir(base)
 	result := ""
 	for _, file := range paths {
@@ -52,7 +53,11 @@ func readProperties(base string, name string) string {
 			key := file.Name()
 			value, err := ioutil.ReadFile(base + "/" + key)
 			if err == nil {
-				prop := name + "." + key + "=" + string(value) + "\n"
+                newline := "\\n"
+                if key == "tags" {
+                    newline = ","
+                }
+				prop := prefix + "." + key + "=" + strings.ReplaceAll(string(value), "\n", newline) + "\n"
 				result = result + prop
 			}
 		}
@@ -61,11 +66,11 @@ func readProperties(base string, name string) string {
 }
 
 func readMetaData(path string, name string) []byte {
-	return []byte(readProperties(path+"/"+name+"/metadata", name))
+	return []byte(readProperties(path+"/"+name+"/metadata", "cnb.metadata." + name))
 }
 
 func readSecret(path string, name string) []byte {
-	return []byte(readProperties(path+"/"+name+"/secret", name))
+	return []byte(readProperties(path+"/"+name+"/secret", "cnb.secret." + name))
 }
 
 func getEnv(name string, defaultValue string) string {
