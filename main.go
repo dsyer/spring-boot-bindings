@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -16,7 +17,7 @@ func main() {
 	flag.Parse()
 	path := getBindingsPath(flag.Args())
 	fmt.Fprintf(os.Stderr, "Reading from: %s\n", path)
-	result := getProperties(path, *loadTemplates(path + "/../templates"))
+	result := getProperties(path, loadTemplates(path+"/../templates"))
 	target := *output
 	if target != "-" {
 		dir := filepath.Dir(target)
@@ -49,7 +50,14 @@ type Metadata struct {
 	Additional map[string]string
 }
 
-func getProperties(path string, template template.Template) string {
+// Templates represents a mapping from a binding kind to a set of templates
+type Templates struct {
+	Kind     string
+	Main     []template.Template
+	Optional []template.Template
+}
+
+func getProperties(path string, templates map[string]Templates) string {
 	result := map[string]string{}
 	paths, _ := ioutil.ReadDir(path)
 	fragments := []string{}
@@ -59,55 +67,85 @@ func getProperties(path string, template template.Template) string {
 			binding := readBinding(path, name)
 			result = addAll(result, flattenMetadata(binding.Metadata, name))
 			result = addAll(result, flattenSecret(binding.Secret, name))
-            fragments = append(fragments, render(template.Lookup(binding.Metadata.Kind), binding))
+			rendered, err := render(templates[binding.Metadata.Kind], binding)
+			if err == nil {
+				fragments = append(fragments, rendered)
+			}
 		}
 	}
 	if len(fragments) > 0 {
 		fragments = append(fragments, "")
-    }
+	}
 	fragments = append(fragments, properties(result))
 	return strings.Join(fragments, "\n")
 }
 
-func render(current *template.Template, binding Binding) string {
+func render(current Templates, binding Binding) (string, error) {
 	fragments := []string{}
-    if current != nil {
-        for _, t := range current.Templates() {
-            buffer := &bytes.Buffer{}
-            err := t.Execute(buffer, binding)
-            value := buffer.String()
-            if err == nil && !strings.Contains(value, "<no value>") {
-                fragments = append(fragments, value)
-            }
-        }
-    }
-    return strings.Join(fragments, "\n")
+	for _, t := range current.Main {
+		buffer := &bytes.Buffer{}
+		err := t.Execute(buffer, binding)
+		value := buffer.String()
+		if err == nil && !strings.Contains(value, "<no value>") {
+			fragments = append(fragments, value)
+		} else {
+			if err == nil {
+				err = errors.New("Cannot render: " + current.Kind)
+			}
+			return strings.Join(fragments, "\n"), err
+		}
+	}
+	for _, t := range current.Optional {
+		buffer := &bytes.Buffer{}
+		err := t.Execute(buffer, binding)
+		value := buffer.String()
+		if err == nil && !strings.Contains(value, "<no value>") {
+			fragments = append(fragments, value)
+		}
+	}
+	return strings.Join(fragments, "\n"), nil
 }
 
-func loadTemplates(path string) *template.Template {
-	result := template.New("bindings")
+func loadTemplates(path string) map[string]Templates {
+	result := map[string]Templates{}
 	paths, _ := ioutil.ReadDir(path)
 	for _, dir := range paths {
 		if dir.IsDir() {
-            name := dir.Name()
-			bytes, err := ioutil.ReadFile(path + "/" + name + "/main.tmpl")
+			kind := dir.Name()
+			result[kind] = Templates{
+				Kind:     kind,
+				Main:     loadMainTemplates(path + "/" + kind),
+				Optional: loadOptionalTemplates(path + "/" + kind),
+			}
+		}
+	}
+	return result
+}
+
+func loadOptionalTemplates(path string) []template.Template {
+	result := []template.Template{}
+	files, _ := ioutil.ReadDir(path)
+	for _, file := range files {
+		if file.IsDir() {
+			result = append(result, loadMainTemplates(path+"/"+file.Name())...)
+		}
+	}
+	return result
+}
+
+func loadMainTemplates(path string) []template.Template {
+	result := []template.Template{}
+	files, _ := ioutil.ReadDir(path)
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".tmpl") {
+			bytes, err := ioutil.ReadFile(path + "/" + file.Name())
 			if err == nil {
-                value := string(bytes)
+				value := string(bytes)
 				value = strings.TrimSuffix(value, "\n")
-                var t *template.Template
-				t, err = result.New(name).Parse(value)
+				var tmpl *template.Template
+				tmpl, err = template.New(file.Name()).Parse(value)
 				if err == nil {
-                    files, _ := ioutil.ReadDir(path + "/" + dir.Name())
-                    for _, file := range files {
-                        if strings.HasSuffix(file.Name(), ".tmpl") && file.Name() != "main.tmpl" {
-                            bytes, err := ioutil.ReadFile(path + "/" + name + "/" + file.Name())
-                            if err == nil {
-                                value := string(bytes)
-                                value = strings.TrimSuffix(value, "\n")
-                                _, err = t.New(file.Name()).Parse(value)
-                            }                
-                        }
-                    }
+					result = append(result, *tmpl)
 				}
 			}
 		}

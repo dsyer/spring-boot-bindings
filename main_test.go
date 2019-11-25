@@ -62,15 +62,18 @@ func TestProperties(t *testing.T) {
 }
 
 func TestLoadTemplates(t *testing.T) {
-	mysql := loadTemplates("samples/templates").Lookup("missing")
-	if len(mysql.Templates()) != 3 {
-		t.Errorf("Wrong templates for mysql (expected 3, found %d)", len(mysql.Templates()))
+	missing := loadTemplates("samples/templates")["missing"]
+	if len(missing.Main) != 1 {
+		t.Errorf("Wrong templates for mysql (expected 1, found %d)", len(missing.Main))
+	}
+	if len(missing.Optional) != 2 {
+		t.Errorf("Wrong templates for mysql (expected 2, found %d)", len(missing.Optional))
 	}
 }
 
 func TestGetProperties(t *testing.T) {
 	templates := loadTemplates("samples/templates")
-	result := getProperties("samples/bindings", *templates)
+	result := getProperties("samples/bindings", templates)
 	if !strings.Contains(result, "spring.datasource.url") {
 		t.Errorf("Wrong templates for mysql %s)", result)
 	}
@@ -80,8 +83,8 @@ func TestGetProperties(t *testing.T) {
 }
 
 func TestMainTemplate(t *testing.T) {
-	mysql := loadTemplates("templates").Lookup("mysql")
-	buffer := render(mysql, Binding {
+	mysql := loadTemplates("templates")["mysql"]
+	buffer, err := render(mysql, Binding {
 		Name: "mysql",
 		Metadata: Metadata{
 			Additional: map[string]string {
@@ -94,6 +97,10 @@ func TestMainTemplate(t *testing.T) {
 			"password": "test",
 		},
 	})
+	if (err!=nil) {
+		t.Errorf("Failed: %s", err)
+		t.Fail()
+	}
 	if !strings.Contains(buffer, "spring.datasource.url=jdbc:mysql://mysql/test") {
 		t.Errorf("Wrong result: %s", buffer)
 	}
@@ -105,9 +112,27 @@ func TestMainTemplate(t *testing.T) {
 	}
 }
 
+func TestMainTemplateError(t *testing.T) {
+	mysql := loadTemplates("templates")["mysql"]
+	buffer, err := render(mysql, Binding {
+		Name: "mysql",
+		Metadata: Metadata{
+		},
+		Secret: map[string]string {
+			"database": "test",
+			"user": "test",
+			"password": "test",
+		},
+	})
+	if (err==nil) {
+		t.Errorf("Should have failed: %s", buffer)
+		t.Fail()
+	}
+}
+
 func TestMissingTemplates(t *testing.T) {
-	mysql := loadTemplates("samples/templates").Lookup("missing")
-	buffer := render(mysql, Binding {
+	mysql := loadTemplates("samples/templates")["missing"]
+	buffer, err := render(mysql, Binding {
 		Name: "mysql",
 		Metadata: Metadata{
 			Additional: map[string]string {
@@ -121,6 +146,10 @@ func TestMissingTemplates(t *testing.T) {
 			"password": "test",
 		},
 	})
+	if (err!=nil) {
+		t.Errorf("Failed: %s", err)
+		t.Fail()
+	}
 	if !strings.Contains(buffer, "spring.datasource.url=jdbc:mysql://mysql/test") {
 		t.Errorf("Wrong result: %s", buffer)
 	}
