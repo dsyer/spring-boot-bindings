@@ -62,7 +62,7 @@ func TestProperties(t *testing.T) {
 }
 
 func TestLoadTemplates(t *testing.T) {
-	missing := loadTemplates("samples/templates")["missing"]
+	missing := loadTemplates("samples/templates")["mysql"]
 	if len(missing.Main) != 1 {
 		t.Errorf("Wrong templates for mysql (expected 1, found %d)", len(missing.Main))
 	}
@@ -131,7 +131,7 @@ func TestMainTemplateError(t *testing.T) {
 }
 
 func TestMissingTemplates(t *testing.T) {
-	mysql := loadTemplates("samples/templates")["missing"]
+	mysql := loadTemplates("samples/templates")["mysql"]
 	buffer, err := render(mysql, Binding {
 		Name: "mysql",
 		Metadata: Metadata{
