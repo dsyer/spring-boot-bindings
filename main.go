@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 )
 
 func main() {
@@ -14,7 +16,7 @@ func main() {
 	flag.Parse()
 	path := getBindingsPath(flag.Args())
 	fmt.Fprintf(os.Stderr, "Reading from: %s\n", path)
-	result := getProperties(path)
+	result := getProperties(path, *loadTemplates(path + "/../templates"))
 	target := *output
 	if target != "-" {
 		dir := filepath.Dir(target)
@@ -26,9 +28,9 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Created directory: %s\n", dir)
 		}
 		fmt.Fprintf(os.Stderr, "Writing file: %s\n", target)
-		ioutil.WriteFile(target, result, 0644)
+		ioutil.WriteFile(target, []byte(result), 0644)
 	} else {
-		fmt.Printf(string(result))
+		fmt.Printf(result)
 	}
 }
 
@@ -47,50 +49,104 @@ type Metadata struct {
 	Additional map[string]string
 }
 
-func getProperties(path string) []byte {
+func getProperties(path string, template template.Template) string {
 	result := map[string]string{}
+	paths, _ := ioutil.ReadDir(path)
+	fragments := []string{}
+	for _, dir := range paths {
+		if dir.IsDir() {
+			name := dir.Name()
+			binding := readBinding(path, name)
+			result = addAll(result, flattenMetadata(binding.Metadata, name))
+			result = addAll(result, flattenSecret(binding.Secret, name))
+            fragments = append(fragments, render(template.Lookup(name), binding))
+		}
+	}
+	if len(fragments) > 0 {
+		fragments = append(fragments, "")
+    }
+	fragments = append(fragments, properties(result))
+	return strings.Join(fragments, "\n")
+}
+
+func render(current *template.Template, binding Binding) string {
+	fragments := []string{}
+    if current != nil {
+        for _, t := range current.Templates() {
+            buffer := &bytes.Buffer{}
+            err := t.Execute(buffer, binding)
+            if err == nil {
+                fragments = append(fragments, buffer.String())
+            }
+        }
+    }
+    return strings.Join(fragments, "\n")
+}
+
+func loadTemplates(path string) *template.Template {
+	result := template.New("bindings")
 	paths, _ := ioutil.ReadDir(path)
 	for _, dir := range paths {
 		if dir.IsDir() {
             name := dir.Name()
-            bindings := Binding {
-                Name: name,
-                Metadata: readMetaData(path, name),
-                Secret: readSecret(path, name),
-            }
-			result = addAll(result, flattenMetadata(bindings.Metadata, name))
-			result = addAll(result, flattenSecret(bindings.Secret, name))
-			// TODO: add map entries keyed on the kind: e.g. for mysql add spring.datasource.*
+			bytes, err := ioutil.ReadFile(path + "/" + name + "/main.tmpl")
+			if err == nil {
+                value := string(bytes)
+				value = strings.TrimSuffix(value, "\n")
+                var t *template.Template
+				t, err = result.New(name).Parse(value)
+				if err == nil {
+                    files, _ := ioutil.ReadDir(path + "/" + dir.Name())
+                    for _, file := range files {
+                        if strings.HasSuffix(file.Name(), ".tmpl") && file.Name() != "main.tmpl" {
+                            bytes, err := ioutil.ReadFile(path + "/" + name + "/" + file.Name())
+                            if err == nil {
+                                value := string(bytes)
+                                value = strings.TrimSuffix(value, "\n")
+                                _, err = t.New(file.Name()).Parse(value)
+                            }                
+                        }
+                    }
+				}
+			}
 		}
 	}
-	return properties(result)
+	return result
+}
+
+func readBinding(path string, name string) Binding {
+	return Binding{
+		Name:     name,
+		Metadata: readMetaData(path, name),
+		Secret:   readSecret(path, name),
+	}
 }
 
 func flattenSecret(secret map[string]string, name string) map[string]string {
-    result := map[string]string{}
-    for k,v := range secret {
-        result["cnb.secret." + name  + "." + k] = v
-    }
+	result := map[string]string{}
+	for k, v := range secret {
+		result["cnb.secret."+name+"."+k] = v
+	}
 	return result
 }
 
 func flattenMetadata(metadata Metadata, name string) map[string]string {
-    result := map[string]string{}
-    for k,v := range metadata.Additional {
-        result["cnb.metadata." + name + "." + k] = v
-    }
-    result["cnb.metadata." + name  + ".kind"] = metadata.Kind
-    result["cnb.metadata." + name  + ".provider"] = metadata.Provider
-    result["cnb.metadata." + name  + ".tags"] = strings.Join(metadata.Tags, ",")
+	result := map[string]string{}
+	for k, v := range metadata.Additional {
+		result["cnb.metadata."+name+"."+k] = v
+	}
+	result["cnb.metadata."+name+".kind"] = metadata.Kind
+	result["cnb.metadata."+name+".provider"] = metadata.Provider
+	result["cnb.metadata."+name+".tags"] = strings.Join(metadata.Tags, ",")
 	return result
 }
 
-func properties(values map[string]string) []byte {
+func properties(values map[string]string) string {
 	result := []string{}
 	for k, v := range values {
 		result = append(result, property(k, v))
 	}
-	return []byte(strings.Join(result, "\n"))
+	return strings.Join(result, "\n")
 }
 
 func property(key string, value string) string {
