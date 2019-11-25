@@ -8,6 +8,7 @@ configMapGenerator:
   - name: mysql-metadata
     behavior: merge
     literals:
+      # Has to be a config map (not a secret) because of kustomize vars restrictions
       - host=$(MYSQL_HOST)
       - kind=mysql
       - provider=dsyer

@@ -33,21 +33,41 @@ func main() {
 }
 
 func getProperties(path string) []byte {
-	properties := []byte{}
+	result := map[string]string{}
 	paths, _ := ioutil.ReadDir(path)
 	for _, dir := range paths {
 		if dir.IsDir() {
 			name := dir.Name()
-			properties = append(properties, readMetaData(path, name)...)
-			properties = append(properties, readSecret(path, name)...)
+			result = addAll(result, readMetaData(path, name))
+            result = addAll(result, readSecret(path, name))
+            // TODO: add map entries keyed on the kind: e.g. for mysql add spring.datasource.*
 		}
 	}
-	return properties
+	return properties(result)
 }
 
-func readProperties(base string, prefix string) string {
+func properties(values map[string]string) []byte {
+    result := []string{}
+    for k,v := range values {
+        result = append(result, property(k,v))
+    }
+    return []byte(strings.Join(result, "\n"))
+}
+
+func property(key string, value string) string {
+    return key + "=" + value
+}
+
+func addAll(values map[string]string, added map[string]string) map[string]string {
+    for k,v := range added {
+        values[k] = v
+    }
+    return values
+}
+
+func readProperties(base string, prefix string) map[string]string {
 	paths, _ := ioutil.ReadDir(base)
-	result := ""
+	result := map[string]string{}
 	for _, file := range paths {
 		if !file.IsDir() {
 			key := file.Name()
@@ -59,20 +79,19 @@ func readProperties(base string, prefix string) string {
                 }
                 value := string(bytes)
                 value = strings.TrimSuffix(value, "\n")
-				prop := prefix + "." + key + "=" + strings.ReplaceAll(value, "\n", newline) + "\n"
-				result = result + prop
+				result[prefix + "." + key] = strings.ReplaceAll(value, "\n", newline) 
 			}
 		}
 	}
 	return result
 }
 
-func readMetaData(path string, name string) []byte {
-	return []byte(readProperties(path+"/"+name+"/metadata", "cnb.metadata." + name))
+func readMetaData(path string, name string) map[string]string {
+	return readProperties(path+"/"+name+"/metadata", "cnb.metadata." + name)
 }
 
-func readSecret(path string, name string) []byte {
-	return []byte(readProperties(path+"/"+name+"/secret", "cnb.secret." + name))
+func readSecret(path string, name string) map[string]string {
+	return readProperties(path+"/"+name+"/secret", "cnb.secret." + name)
 }
 
 func getEnv(name string, defaultValue string) string {

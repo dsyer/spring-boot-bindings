@@ -6,30 +6,41 @@ import (
 )
 
 func TestReadMeta(t *testing.T) {
-	props := string(readMetaData("samples/input", "mysql"))
-	if !strings.Contains(props, "cnb.metadata.mysql.test=Hello\\nWorld") {
+	props := readMetaData("samples/input", "mysql")
+	if props["cnb.metadata.mysql.test"] != "Hello\\nWorld" {
 		t.Errorf("Props = %s; want 'mysql.test=Hello\\nWorld'", props)
 	}
 }
 
 func TestReadSecret(t *testing.T) {
-	props := string(readSecret("samples/input", "mysql"))
-	if !strings.Contains(props, "cnb.secret.mysql.password=secret") {
+	props := readSecret("samples/input", "mysql")
+	if props["cnb.secret.mysql.password"] != "secret" {
 		t.Errorf("Props = %s; want 'mysql.password=secret'", props)
 	}
 }
 
 func TestMetaKeyValue(t *testing.T) {
 	props := readProperties("samples/input/mysql/metadata", "mysql")
-	if !contains(strings.Split(props, "\n"), "mysql.test=Hello\\nWorld") {
+	if props["mysql.test"] != "Hello\\nWorld" {
 		t.Errorf("Props = %s; want 'mysql.test=Hello\\nWorld'", props)
 	}
 }
 
 func TestMetaTags(t *testing.T) {
 	props := readProperties("samples/input/mysql/metadata", "mysql")
-	if !contains(strings.Split(props, "\n"), "mysql.tags=one,two,three") {
+	if props["mysql.tags"] != "one,two,three" {
 		t.Errorf("Props = %s; want 'mysql.tags=one,two,three'", props)
+	}
+}
+
+func TestProperties(t *testing.T) {
+	props := map[string]string{
+		"foo": "bar",
+		"spam.foo": "bar.foo",
+	}
+	result := string(properties(props))
+	if !contains(strings.Split(result, "\n"), "spam.foo=bar.foo") {
+		t.Errorf("Props = %s; want 'spam.foo=bar.foo'", result)
 	}
 }
 
