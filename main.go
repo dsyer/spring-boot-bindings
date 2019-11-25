@@ -59,7 +59,7 @@ func getProperties(path string, template template.Template) string {
 			binding := readBinding(path, name)
 			result = addAll(result, flattenMetadata(binding.Metadata, name))
 			result = addAll(result, flattenSecret(binding.Secret, name))
-            fragments = append(fragments, render(template.Lookup(name), binding))
+            fragments = append(fragments, render(template.Lookup(binding.Metadata.Kind), binding))
 		}
 	}
 	if len(fragments) > 0 {
@@ -75,8 +75,9 @@ func render(current *template.Template, binding Binding) string {
         for _, t := range current.Templates() {
             buffer := &bytes.Buffer{}
             err := t.Execute(buffer, binding)
-            if err == nil {
-                fragments = append(fragments, buffer.String())
+            value := buffer.String()
+            if err == nil && !strings.Contains(value, "<no value>") {
+                fragments = append(fragments, value)
             }
         }
     }

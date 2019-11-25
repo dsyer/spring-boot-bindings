@@ -68,6 +68,17 @@ func TestLoadTemplates(t *testing.T) {
 	}
 }
 
+func TestGetProperties(t *testing.T) {
+	templates := loadTemplates("samples/templates")
+	result := getProperties("samples/bindings", *templates)
+	if !strings.Contains(result, "spring.datasource.url") {
+		t.Errorf("Wrong templates for mysql %s)", result)
+	}
+	if strings.Contains(result, "<no value>") {
+		t.Errorf("Wrong templates for mysql %s)", result)
+	}
+}
+
 func TestMainTemplate(t *testing.T) {
 	mysql := loadTemplates("templates").Lookup("mysql")
 	buffer := render(mysql, Binding {
