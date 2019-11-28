@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  replicas: 1
+  template:
+    spec:
+      initContainers:
+      - name: env
+        image: dsyer/spring-boot-bindings
+        args: ["-f", "/etc/config/application.properties", "/config/bindings"]
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+        - name: kafka-metadata
+          mountPath: /config/bindings/kafka/metadata
+        - name: kafka-secret
+          mountPath: /config/bindings/kafka/secret
+      containers:
+      - name: app
+        image: dsyer/listener
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+        env:
+        - name: EXT_LIBS
+          value: /app/ext
+        - name: MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE
+          value: '*'
+        - name: SPRING_CONFIG_LOCATION
+          value: classpath:/,file:///etc/config/
+      volumes:
+      - name: kafka-metadata
+        configMap:
+          name: kafka-metadata
+      - name: kafka-secret
+        secret:
+          secretName: kafka-secret
+      - name: config
+        hostPath:
+          path: /data
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+spec:
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+      name: http
