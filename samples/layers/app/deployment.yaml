@@ -24,6 +24,8 @@ spec:
         - name: config
           mountPath: /etc/config
         env:
+        - name: MANAGEMENT_ENDPOINT_HEALTH_SHOW_COMPONENTS
+          value: always
         - name: MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE
           value: '*'
         - name: SPRING_CONFIG_LOCATION
