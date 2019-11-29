@@ -62,7 +62,7 @@ func getProperties(path string, templates map[string]Templates) string {
 	paths, _ := ioutil.ReadDir(path)
 	fragments := []string{}
 	for _, dir := range paths {
-		if dir.IsDir() {
+		if dir.IsDir() && !strings.HasPrefix(dir.Name(), "..") {
 			name := dir.Name()
 			binding := readBinding(path, name)
 			result = addAll(result, flattenMetadata(binding.Metadata, name))
@@ -110,7 +110,7 @@ func loadTemplates(path string) map[string]Templates {
 	result := map[string]Templates{}
 	paths, _ := ioutil.ReadDir(path)
 	for _, dir := range paths {
-		if dir.IsDir() {
+		if dir.IsDir() && !strings.HasPrefix(dir.Name(), "..") {
 			kind := dir.Name()
 			result[kind] = Templates{
 				Kind:     kind,
@@ -126,7 +126,7 @@ func loadOptionalTemplates(path string) []template.Template {
 	result := []template.Template{}
 	files, _ := ioutil.ReadDir(path)
 	for _, file := range files {
-		if file.IsDir() {
+		if file.IsDir() && !strings.HasPrefix(file.Name(), "..") {
 			result = append(result, loadMainTemplates(path+"/"+file.Name())...)
 		}
 	}

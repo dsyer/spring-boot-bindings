@@ -80,6 +80,17 @@ func TestGetProperties(t *testing.T) {
 	if strings.Contains(result, "<no value>") {
 		t.Errorf("Wrong templates for mysql %s)", result)
 	}
+	if strings.Count(result, "spring.datasource.url") > 1 {
+		t.Errorf("Wrong templates for mysql %s)", result)
+	}
+}
+
+func TestGetPropertiesFromConfigMap(t *testing.T) {
+	templates := loadTemplates("samples/configmap")
+	result := getProperties("samples/bindings", templates)
+	if strings.Count(result, "spring.datasource.url") > 1 {
+		t.Errorf("Wrong templates for mysql %s)", result)
+	}
 }
 
 func TestMainTemplate(t *testing.T) {
