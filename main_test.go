@@ -88,7 +88,17 @@ func TestGetProperties(t *testing.T) {
 func TestGetPropertiesFromConfigMap(t *testing.T) {
 	templates := loadTemplates("samples/configmap")
 	result := getProperties("samples/bindings", templates)
-	if strings.Count(result, "spring.datasource.url") > 1 {
+	if strings.Count(result, "spring.datasource.url") != 1 {
+		t.Errorf("Wrong templates for mysql %s)", result)
+	}
+}
+
+func TestGetPropertiesFromEmpty(t *testing.T) {
+	// As long as there is an "unknown" directory to match the default "kind" 
+	// you can render anything you like as application.properties
+	templates := loadTemplates("samples/notcnb")
+	result := getProperties("samples/notcnb", templates)
+	if strings.Count(result, "spring.datasource.url") != 1 {
 		t.Errorf("Wrong templates for mysql %s)", result)
 	}
 }
