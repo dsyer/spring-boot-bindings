@@ -91,6 +91,10 @@ func TestGetPropertiesFromConfigMap(t *testing.T) {
 	if strings.Count(result, "spring.datasource.url") != 1 {
 		t.Errorf("Wrong templates for mysql %s)", result)
 	}
+	if strings.Count(result, ".tmpl") != 0 {
+		// If the same config map is used to store metadata and templates, then the templates should be excluded
+		t.Errorf("Wrong templates for unknown %s)", result)
+	}
 }
 
 func TestGetPropertiesFromEmpty(t *testing.T) {
@@ -99,7 +103,10 @@ func TestGetPropertiesFromEmpty(t *testing.T) {
 	templates := loadTemplates("samples/notcnb")
 	result := getProperties("samples/notcnb", templates)
 	if strings.Count(result, "spring.datasource.url") != 1 {
-		t.Errorf("Wrong templates for mysql %s)", result)
+		t.Errorf("Wrong templates for unknown %s)", result)
+	}
+	if strings.Count(result, "main.tmpl") != 0 {
+		t.Errorf("Wrong templates for unknown %s)", result)
 	}
 }
 

@@ -205,6 +205,9 @@ func readProperties(base string) map[string]string {
 	for _, file := range paths {
 		if !file.IsDir() {
 			key := file.Name()
+			if strings.HasSuffix(key, ".tmpl") {
+				continue
+			}
 			bytes, err := ioutil.ReadFile(base + "/" + key)
 			if err == nil {
 				value := string(bytes)
