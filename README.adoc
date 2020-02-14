@@ -68,13 +68,13 @@ spring.datasource.url=jdbc:mysql://service.svc.default.local/test
 spring.datasource.username=user
 spring.datasource.password=bar
 
+cnb.metadata.other.tags=taggy,mctagface
+cnb.metadata.other.host=service.svc.default.local
+cnb.metadata.other.kind=mysql
+cnb.secret.other.user=user
 cnb.secret.other.database=test
 cnb.secret.other.password=bar
-cnb.secret.other.user=user
-cnb.metadata.other.host=service.svc.default.local
-cnb.metadata.other.kind=missing
 cnb.metadata.other.provider=unknown
-cnb.metadata.other.tags=taggy,mctagface
 ```
 
 A template is structured like this
@@ -88,7 +88,7 @@ templates/
      └─── main.tmpl
 ```
 
-Each `<kind>` has it's own directory. Files of type `.tmpl` in that directory are mandatory templates - if any fail to by rendered the whole enhancement for this kind is omitted. Subdirectories can contain as many optional templates as they like - if any fail to be rendered they are themselves omitted, but they don't stop the others from proceeding.
+Each `<kind>` has it's own directory. Files of type `.tmpl` in that directory are mandatory templates - if any fail to by rendered the whole enhancement for this kind is omitted. Subdirectories can contain as many optional templates as they like - if any fail to be rendered they are themselves omitted, but they don't stop the others from proceeding. The "kind" in the example above was "mysql".
 
 A `.tmpl` is a GO template with `{{}}` placeholders for the binding as the root. The binding is defined as an object of this type:
 
